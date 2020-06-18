@@ -56,33 +56,25 @@ def lambda_handler(event, context):
     logger.info('event parameter: {}'.format(event))
 
     src_filename = event['name']
+    filter_name = event['filter']
+    param_flags = event.get('flags',0)
+    param_sigma_s = event.get('sigma_s',0)
+    param_sigma_r = event.get('sigma_r',0.0)
+    param_shade_factor = event.get('shade_factor',0.0)
+
+
     filename_set = os.path.splitext(src_filename)
     basename = filename_set[0]
     ext = filename_set[1]
 
     down_filename='/tmp/my_image{}'.format(ext)
-    down_filename_gray='/tmp/my_image_gray{}'.format(ext)
-    down_filename_ep='/tmp/my_image_ep{}'.format(ext)
-    down_filename_de='/tmp/my_image_de{}'.format(ext)
-    down_filename_style='/tmp/my_image_style{}'.format(ext)
-    down_filename_ps_gray='/tmp/my_image_ps_gray{}'.format(ext)
-    down_filename_ps_color='/tmp/my_image_ps_color{}'.format(ext)
-
+    down_filename_filter='/tmp/my_image_filter{}'.format(ext)
+    down_filename_filter_json='/tmp/my_image_filter.json'
 
     if os.path.exists(down_filename):
         os.remove(down_filename)
-    if os.path.exists(down_filename_gray):
-        os.remove(down_filename_gray)
-    if os.path.exists(down_filename_ep):
-        os.remove(down_filename_ep)
-    if os.path.exists(down_filename_de):
-        os.remove(down_filename_de)
-    if os.path.exists(down_filename_style):
-        os.remove(down_filename_style)
-    if os.path.exists(down_filename_ps_gray):
-        os.remove(down_filename_ps_gray)
-    if os.path.exists(down_filename_ps_color):
-        os.remove(down_filename_ps_color)
+    if os.path.exists(down_filename_filter):
+        os.remove(down_filename_filter)
 
     #
     # s3 = boto3.resource('s3')
@@ -106,91 +98,90 @@ def lambda_handler(event, context):
     #
     image_src = cv2.imread(down_filename)
 
-    #
-    # Extract a hash value from an image.
-    #
-    image_bytes = cv2.imencode(ext, image_src)[1]
-    hash_str = hash_image(image_bytes)
+    filter_filename='public/{basename}/{filtername}{ext}'.format(
+        basename = basename,
+        filtername = filter_name,
+        ext = ext
+    )
 
-    source_filename='public/{}/source{}'.format(hash_str,ext)
-    gray_filename='public/{}/gray{}'.format(hash_str,ext)
-    ep_filename='public/{}/ep{}'.format(hash_str,ext)
-    de_filename='public/{}/de{}'.format(hash_str,ext)
-    style_filename='public/{}/style{}'.format(hash_str,ext)
-    ps_gray_filename='public/{}/ps-gray{}'.format(hash_str,ext)
-    ps_color_filename='public/{}/ps-color{}'.format(hash_str,ext)
+    filter_jsonfile='public/{basename}/{filtername}.json'.format(
+        basename = basename,
+        filtername = filter_name
+    ) 
 
-    try:
-
-        response =s3.list_objects_v2(
-            Bucket = BUCKET_NAME, 
-            Prefix = "public/{}".format(hash_str)
+    print("[DEBUG] ===> {}".format(filter_filename))
+    imageKey = ""
+    if filter_name == 'ep':
+        image_ep = cv2.edgePreservingFilter(image_src, 
+            flags=param_flags, 
+            sigma_s=param_sigma_s, 
+            sigma_r=param_sigma_r
         )
+        cv2.imwrite(down_filename_filter, image_ep)
+        imageKey = "edgePreserving"
 
-        results = listImages(response)
-        if len(results) != 0:
-            ''' Remove the uploaded file because this file exists on s3 '''
-            s3.delete_object(Bucket=BUCKET_NAME, Key=S3_KEY)
+    elif filter_name == 'de':
+        image_de  = cv2.detailEnhance(image_src, 
+            sigma_s=param_sigma_s, 
+            sigma_r=param_sigma_r
+        )
+        cv2.imwrite(down_filename_filter, image_de)
+        imageKey = "detailEnhance"
 
-            ''' return results '''
-            return {
-                "statusCode": 200,
-                "body": {
-                    "hash" : hash_str,
-                    "images": results
-                },
-            }
+    elif filter_name == 'style':
+        image_stylization = cv2.stylization(image_src, 
+            sigma_s=param_sigma_s, 
+            sigma_r=param_sigma_r
+        )
+        cv2.imwrite(down_filename_filter, image_stylization)
+        imageKey = "stylization"
 
-    except botocore.exceptions.ClientError as e:
-        print("[DEBUG] ERROR = {}".format(e))
+    elif filter_name == 'ps_gray':
+        image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
+            sigma_s=param_sigma_s, 
+            sigma_r=param_sigma_r, 
+            shade_factor=param_shade_factor
+        )
+        cv2.imwrite(down_filename_filter, image_ps_gray)
+        imageKey = "pencilSketch_gray"
 
+    elif filter_name == 'ps_color':
+        image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
+            sigma_s=param_sigma_s, 
+            sigma_r=param_sigma_r, 
+            shade_factor=param_shade_factor
+        )
+        cv2.imwrite(down_filename_filter, image_ps_color)
+        imageKey = "pencilSketch_color"
 
-    print("[DEBUG] no image = {}".format(hash_str))
+    #
+    # Save json text to temp file.
+    #
+    j = {
+        'flags' = param_flags,
+        'sigma_s' = param_sigma_s,
+        'sigma_r' = param_sigma_r,
+        'shade_factor' = param_shade_factor
+    }
 
-    image_gray = cv2.cvtColor(image_src, cv2.COLOR_BGR2GRAY)
-    cv2.imwrite(down_filename_gray, image_gray)
-
-    image_ep = cv2.edgePreservingFilter(image_src, flags=1, sigma_s=60, sigma_r=0.4)
-    cv2.imwrite(down_filename_ep, image_ep)
-
-    image_de  = cv2.detailEnhance(image_src, sigma_s=10, sigma_r=0.15)
-    cv2.imwrite(down_filename_de, image_de)
-
-    image_stylization = cv2.stylization(image_src, sigma_s=60, sigma_r=0.45)
-    cv2.imwrite(down_filename_style, image_stylization)
-
-    image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
-    cv2.imwrite(down_filename_ps_gray, image_ps_gray)
-    cv2.imwrite(down_filename_ps_color, image_ps_color)
+    with open(down_filename_filter_json,'w') as f:
+        f.write(json.dumps(j))
 
     #
     # s3 = boto3.client('s3')
     #
-    s3.upload_file(down_filename, BUCKET_NAME, source_filename)
-    s3.upload_file(down_filename_gray, BUCKET_NAME, gray_filename)
-    s3.upload_file(down_filename_ep, BUCKET_NAME, ep_filename)
-    s3.upload_file(down_filename_de, BUCKET_NAME, de_filename)
-    s3.upload_file(down_filename_style, BUCKET_NAME, style_filename)
-    s3.upload_file(down_filename_ps_gray, BUCKET_NAME, ps_gray_filename)
-    s3.upload_file(down_filename_ps_color, BUCKET_NAME, ps_color_filename)
-
+    s3.upload_file(down_filename_filter, BUCKET_NAME, filter_filename)
+    s3.upload_file(down_filename_filter_json, BUCKET_NAME, filter_jsonfile)
 
     images = {
-        "source" : S3_URL.format(bucketName = BUCKET_NAME, keyName = source_filename),
-        "gray" : S3_URL.format(bucketName = BUCKET_NAME, keyName = gray_filename),
-        "edgePreserving" : S3_URL.format(bucketName = BUCKET_NAME, keyName = ep_filename),
-        "detailEnhance" : S3_URL.format(bucketName = BUCKET_NAME, keyName = de_filename),
-        "stylization" : S3_URL.format(bucketName = BUCKET_NAME, keyName = style_filename),
-        "pencilSketch_gray" : S3_URL.format(bucketName = BUCKET_NAME, keyName = ps_gray_filename),
-        "pencilSketch_color" : S3_URL.format(bucketName = BUCKET_NAME, keyName = ps_color_filename)
+        "source" : S3_URL.format(bucketName = BUCKET_NAME, keyName = src_filename),
+        "params" : S3_URL.format(bucketName = BUCKET_NAME, keyName = src_filename),
+        imageKey : S3_URL.format(bucketName = BUCKET_NAME, keyName = filter_filename)
     }
 
-    s3.delete_object(Bucket=BUCKET_NAME, Key=S3_KEY)
+        
     return {
         "statusCode": 200,
-        "body": {
-            "hash" : hash_str,
-            "images": images
-        },
+        "body": { "images": images }
     }
 
