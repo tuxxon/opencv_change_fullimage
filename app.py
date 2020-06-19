@@ -175,7 +175,7 @@ def lambda_handler(event, context):
 
     images = {
         "source" : S3_URL.format(bucketName = BUCKET_NAME, keyName = src_filename),
-        "params" : S3_URL.format(bucketName = BUCKET_NAME, keyName = src_filename),
+        "params" : j,
         imageKey : S3_URL.format(bucketName = BUCKET_NAME, keyName = filter_filename)
     }
 
