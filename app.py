@@ -62,6 +62,7 @@ def lambda_handler(event, context):
     param_sigma_r = event.get('sigma_r',0.0)
     param_shade_factor = event.get('shade_factor',0.0)
 
+    print("[DEBUG] param_sigma_r ===> {}".format(param_sigma_r))
 
     filename_set = os.path.splitext(src_filename)
     basename = filename_set[0]
@@ -81,7 +82,7 @@ def lambda_handler(event, context):
     #
     s3 = boto3.client('s3')
     BUCKET_NAME = os.environ.get("BUCKET_NAME")
-    S3_KEY = src_filename
+    S3_KEY = "public/{}".format(src_filename)
 
     try:
         # s3.Bucket(BUCKET_NAME).download_file(S3_KEY, down_filename)
@@ -154,14 +155,14 @@ def lambda_handler(event, context):
         cv2.imwrite(down_filename_filter, image_ps_color)
         imageKey = "pencilSketch_color"
 
-    #
+    # 삭제하신 후 제글도 삭제하세요.
     # Save json text to temp file.
     #
     j = {
-        'flags' = param_flags,
-        'sigma_s' = param_sigma_s,
-        'sigma_r' = param_sigma_r,
-        'shade_factor' = param_shade_factor
+        'flags' : param_flags,
+        'sigma_s' : param_sigma_s,
+        'sigma_r' : param_sigma_r,
+        'shade_factor' : param_shade_factor
     }
 
     with open(down_filename_filter_json,'w') as f:
