@@ -139,7 +139,7 @@ def lambda_handler(event, context):
         cv2.imwrite(down_filename_filter, image_stylization)
         imageKey = "stylization"
 
-    elif filter_name == 'ps_gray':
+    elif filter_name == 'ps-gray':
         image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
             sigma_s=param_sigma_s, 
             sigma_r=param_sigma_r, 
@@ -148,7 +148,7 @@ def lambda_handler(event, context):
         cv2.imwrite(down_filename_filter, image_ps_gray)
         imageKey = "pencilSketch_gray"
 
-    elif filter_name == 'ps_color':
+    elif filter_name == 'ps-color':
         image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
             sigma_s=param_sigma_s, 
             sigma_r=param_sigma_r, 
