@@ -67,6 +67,8 @@ def lambda_handler(event, context):
     filename_set = os.path.splitext(src_filename)
     basename = filename_set[0]
     ext = filename_set[1]
+    hashvalue = basename.split("/")[0]
+
 
     down_filename='/tmp/my_image{}'.format(ext)
     down_filename_filter='/tmp/my_image_filter{}'.format(ext)
@@ -100,13 +102,13 @@ def lambda_handler(event, context):
     image_src = cv2.imread(down_filename)
 
     filter_filename='public/{basename}/{filtername}{ext}'.format(
-        basename = basename,
+        basename = hashvalue,
         filtername = filter_name,
         ext = ext
     )
 
     filter_jsonfile='public/{basename}/{filtername}.json'.format(
-        basename = basename,
+        basename = hashvalue,
         filtername = filter_name
     ) 
 
