@@ -7,9 +7,11 @@ import json
 import logging
 import numpy
 import os
+import time
 
 
 S3_URL = "https://{bucketName}.s3.ap-northeast-2.amazonaws.com/{keyName}"
+DEST_S3_URL = "https://{bucketName}.s3.ap-northeast-2.amazonaws.com/{keyName}?t={timeStamp}"
 #
 # ''' get the hash value for an image '''
 #
@@ -113,7 +115,7 @@ def lambda_handler(event, context):
     ) 
 
     print("[DEBUG] ===> {}".format(filter_filename))
-    imageKey = ""
+
     if filter_name == 'ep':
         image_ep = cv2.edgePreservingFilter(image_src, 
             flags=param_flags, 
@@ -121,7 +123,6 @@ def lambda_handler(event, context):
             sigma_r=param_sigma_r
         )
         cv2.imwrite(down_filename_filter, image_ep)
-        imageKey = "edgePreserving"
 
     elif filter_name == 'de':
         image_de  = cv2.detailEnhance(image_src, 
@@ -129,7 +130,6 @@ def lambda_handler(event, context):
             sigma_r=param_sigma_r
         )
         cv2.imwrite(down_filename_filter, image_de)
-        imageKey = "detailEnhance"
 
     elif filter_name == 'style':
         image_stylization = cv2.stylization(image_src, 
@@ -137,7 +137,6 @@ def lambda_handler(event, context):
             sigma_r=param_sigma_r
         )
         cv2.imwrite(down_filename_filter, image_stylization)
-        imageKey = "stylization"
 
     elif filter_name == 'ps-gray':
         image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
@@ -146,7 +145,6 @@ def lambda_handler(event, context):
             shade_factor=param_shade_factor
         )
         cv2.imwrite(down_filename_filter, image_ps_gray)
-        imageKey = "pencilSketch_gray"
 
     elif filter_name == 'ps-color':
         image_ps_gray, image_ps_color = cv2.pencilSketch(image_src, 
@@ -155,7 +153,6 @@ def lambda_handler(event, context):
             shade_factor=param_shade_factor
         )
         cv2.imwrite(down_filename_filter, image_ps_color)
-        imageKey = "pencilSketch_color"
 
     # 삭제하신 후 제글도 삭제하세요.
     # Save json text to temp file.
@@ -177,9 +174,16 @@ def lambda_handler(event, context):
     s3.upload_file(down_filename_filter_json, BUCKET_NAME, filter_jsonfile)
 
     images = {
-        "source" : S3_URL.format(bucketName = BUCKET_NAME, keyName = src_filename),
+        "source" : S3_URL.format(
+            bucketName = BUCKET_NAME, 
+            keyName = src_filename
+        ),
         "params" : j,
-        imageKey : S3_URL.format(bucketName = BUCKET_NAME, keyName = filter_filename)
+        "dest" : DEST_S3_URL.format(
+            bucketName = BUCKET_NAME, 
+            keyName = filter_filename,
+            timeStamp = time.time()
+        )
     }
 
         
